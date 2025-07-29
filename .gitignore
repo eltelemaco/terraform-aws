@@ -45,3 +45,4 @@ terraform.rc
 .vscode/extensions.json
 .vscode/mcp.json
 MCP_SETUP.md
+.codacy/codacy.yaml
