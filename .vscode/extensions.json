@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "github.copilot",
+    "github.copilot-chat",
+    "hashicorp.terraform",
+    "ms-vscode.vscode-json",
+    "redhat.vscode-yaml",
+    "ms-kubernetes-tools.vscode-kubernetes-tools",
+    "ms-vscode.powershell",
+    "eamodio.gitlens",
+    "donjayamanne.githistory",
+    "streetsidesoftware.code-spell-checker"
+  ]
+}
