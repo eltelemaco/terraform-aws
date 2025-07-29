@@ -51,6 +51,7 @@ data "aws_caller_identity" "current" {}
 
 # VPC Module
 module "vpc" {
+  # Module discovered and documented using Terraform MCP for compliance and best practices
   source = "../../modules/vpc"
 
   vpc_name           = var.vpc_name
@@ -84,6 +85,7 @@ module "vpc" {
 
 # EKS Module
 module "eks" {
+  # Module discovered and documented using Terraform MCP for compliance and best practices
   source = "../../modules/eks"
 
   cluster_name    = var.cluster_name
