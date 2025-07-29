@@ -37,4 +37,4 @@ override.tf.json
 terraform.rc
 
 # Ignore vscode AI rules
-.github\copilot-instructions.md
+.github/copilot-instructions.md
