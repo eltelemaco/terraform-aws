@@ -192,3 +192,19 @@ output "configure_kubectl" {
   description = "Configure kubectl: make sure you're logged in with the correct AWS profile and run the following command to update your kubeconfig"
   value       = "aws eks --region ${var.aws_region} update-kubeconfig --name ${module.eks.cluster_name}"
 }
+
+# AWS Load Balancer Controller Outputs
+output "aws_load_balancer_controller_role_arn" {
+  description = "ARN of the IAM role for AWS Load Balancer Controller"
+  value       = module.aws_load_balancer_controller.iam_role_arn
+}
+
+output "aws_load_balancer_controller_service_account" {
+  description = "Name of the AWS Load Balancer Controller service account"
+  value       = module.aws_load_balancer_controller.service_account_name
+}
+
+output "aws_load_balancer_controller_helm_status" {
+  description = "Status of the AWS Load Balancer Controller Helm release"
+  value       = module.aws_load_balancer_controller.helm_release_status
+}

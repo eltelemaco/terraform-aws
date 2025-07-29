@@ -145,3 +145,36 @@ provider "helm" {
     token                  = module.eks.cluster_auth_token
   }
 }
+
+# AWS Load Balancer Controller
+module "aws_load_balancer_controller" {
+  source = "../../modules/aws-load-balancer-controller"
+
+  cluster_name = module.eks.cluster_name
+  aws_region   = var.aws_region
+  vpc_id       = module.vpc.vpc_id
+
+  # Use default namespace (kube-system)
+  namespace        = "kube-system"
+  create_namespace = false
+
+  # Use latest stable version
+  helm_chart_version = "1.8.1"
+
+  # Development configuration - 2 replicas for HA
+  replica_count = 2
+
+  # Resource limits for development
+  cpu_request    = "100m"
+  cpu_limit      = "200m"
+  memory_request = "200Mi"
+  memory_limit   = "500Mi"
+
+  tags = var.tags
+
+  # Ensure EKS cluster and node groups are ready
+  depends_on = [
+    module.eks,
+    module.eks.eks_managed_node_groups
+  ]
+}

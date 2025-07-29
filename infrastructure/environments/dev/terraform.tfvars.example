@@ -60,9 +60,6 @@ addons = {
   aws-efs-csi-driver = {
     most_recent = true
   }
-  aws-load-balancer-controller = {
-    most_recent = true
-  }
 }
 
 # EKS Managed Node Groups
