@@ -1,0 +1,247 @@
+name: "Multi-Account Terraform Workflow"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Target environment (dev, staging, prod)"
+        required: true
+        type: string
+      terraform_version:
+        description: "Terraform version to use"
+        required: false
+        type: string
+        default: "1.5.0"
+      working_directory:
+        description: "Working directory for Terraform operations"
+        required: true
+        type: string
+      aws_region:
+        description: "AWS region for deployment"
+        required: false
+        type: string
+        default: "us-east-1"
+      auto_apply:
+        description: "Whether to automatically apply changes"
+        required: false
+        type: boolean
+        default: false
+      destroy_mode:
+        description: "Whether to destroy infrastructure"
+        required: false
+        type: boolean
+        default: false
+      var_file:
+        description: "Path to terraform.tfvars file"
+        required: false
+        type: string
+        default: "terraform.tfvars"
+      aws_account_id:
+        description: "Target AWS Account ID for deployment"
+        required: true
+        type: string
+      deployment_role_name:
+        description: "IAM role name for deployment"
+        required: false
+        type: string
+        default: "GitHubActionsDeploymentRole"
+    outputs:
+      terraform_plan_output:
+        description: "Terraform plan output"
+        value: ${{ jobs.terraform.outputs.plan_output }}
+      terraform_apply_status:
+        description: "Terraform apply status"
+        value: ${{ jobs.terraform.outputs.apply_status }}
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write # Required for OIDC
+
+jobs:
+  terraform:
+    name: "Terraform - ${{ inputs.environment }} (${{ inputs.aws_account_id }})"
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    outputs:
+      plan_output: ${{ steps.plan.outputs.stdout }}
+      apply_status: ${{ steps.apply.outcome }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.terraform_version }}
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ inputs.aws_account_id }}:role/${{ inputs.deployment_role_name }}
+          role-session-name: GitHubActions-${{ inputs.environment }}-${{ github.run_id }}
+          aws-region: ${{ inputs.aws_region }}
+          role-duration-seconds: 3600
+
+      - name: Verify AWS Account
+        run: |
+          CURRENT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          EXPECTED_ACCOUNT="${{ inputs.aws_account_id }}"
+
+          echo "🏢 Current AWS Account: $CURRENT_ACCOUNT"
+          echo "🎯 Expected Account: $EXPECTED_ACCOUNT"
+
+          if [[ "$CURRENT_ACCOUNT" != "$EXPECTED_ACCOUNT" ]]; then
+            echo "❌ Account mismatch! Deployment blocked."
+            echo "Current: $CURRENT_ACCOUNT"
+            echo "Expected: $EXPECTED_ACCOUNT"
+            exit 1
+          fi
+
+          echo "✅ Account verification successful"
+          echo "🌍 Region: $(aws configure get region)"
+          echo "👤 Identity: $(aws sts get-caller-identity --query Arn --output text)"
+
+      - name: Terraform Init
+        id: init
+        run: |
+          echo "🚀 Initializing Terraform for environment: ${{ inputs.environment }}"
+          echo "🏢 Account: ${{ inputs.aws_account_id }}"
+          echo "🌍 Region: ${{ inputs.aws_region }}"
+
+          # Dynamic backend configuration based on environment
+          if [[ "${{ inputs.environment }}" == "prod" ]]; then
+            BACKEND_KEY="prod/terraform.tfstate"
+          else
+            BACKEND_KEY="nonprod/${{ inputs.environment }}/terraform.tfstate"
+          fi
+
+          terraform init \
+            -backend-config="key=${BACKEND_KEY}" \
+            -backend-config="region=${{ inputs.aws_region }}"
+        env:
+          TF_VAR_environment: ${{ inputs.environment }}
+          TF_VAR_aws_account_id: ${{ inputs.aws_account_id }}
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          echo "📋 Planning Terraform changes for environment: ${{ inputs.environment }}"
+          echo "🏢 Account: ${{ inputs.aws_account_id }}"
+
+          if [ "${{ inputs.destroy_mode }}" == "true" ]; then
+            echo "🗑️ Planning infrastructure destruction..."
+            terraform plan -destroy -input=false -var-file="${{ inputs.var_file }}" -out=tfplan
+          else
+            echo "🏗️ Planning infrastructure deployment..."
+            terraform plan -input=false -var-file="${{ inputs.var_file }}" -out=tfplan
+          fi
+        env:
+          TF_VAR_environment: ${{ inputs.environment }}
+          TF_VAR_aws_account_id: ${{ inputs.aws_account_id }}
+
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      - name: Comment PR (Plan)
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Multi-Account Deployment 🏢
+
+            **Environment:** \`${{ inputs.environment }}\`
+            **AWS Account:** \`${{ inputs.aws_account_id }}\`
+            **Region:** \`${{ inputs.aws_region }}\`
+            **Working Directory:** \`${{ inputs.working_directory }}\`
+
+            #### Results Summary
+            - **Format Check:** \`${{ steps.fmt.outcome }}\`
+            - **Validation:** \`${{ steps.validate.outcome }}\`
+            - **Plan:** \`${{ steps.plan.outcome }}\`
+
+            <details><summary>📋 Show Terraform Plan</summary>
+
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+
+            </details>
+
+            *Deployment Actor: @${{ github.actor }}*
+            *Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Apply
+        id: apply
+        if: inputs.auto_apply == true
+        run: |
+          echo "🚀 Applying Terraform changes for environment: ${{ inputs.environment }}"
+          echo "🏢 Account: ${{ inputs.aws_account_id }}"
+
+          if [ "${{ inputs.destroy_mode }}" == "true" ]; then
+            echo "🗑️ Destroying infrastructure..."
+          else
+            echo "🏗️ Deploying infrastructure..."
+          fi
+
+          terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_environment: ${{ inputs.environment }}
+          TF_VAR_aws_account_id: ${{ inputs.aws_account_id }}
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terraform-plan-${{ inputs.environment }}-${{ inputs.aws_account_id }}
+          path: ${{ inputs.working_directory }}/tfplan
+          retention-days: 30
+
+      - name: Upload Terraform State
+        uses: actions/upload-artifact@v4
+        if: steps.apply.outcome == 'success'
+        with:
+          name: terraform-state-${{ inputs.environment }}-${{ inputs.aws_account_id }}
+          path: ${{ inputs.working_directory }}/terraform.tfstate*
+          retention-days: 90
+
+      - name: Post-Deployment Verification
+        if: steps.apply.outcome == 'success'
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "🏢 Account: ${{ inputs.aws_account_id }}"
+          echo "🌍 Region: ${{ inputs.aws_region }}"
+          echo "📁 Environment: ${{ inputs.environment }}"
+
+          # Verify deployment in correct account
+          CURRENT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          echo "🔍 Verified deployment in account: $CURRENT_ACCOUNT"
+
+          # Optional: Run basic smoke tests
+          echo "🧪 Running basic infrastructure verification..."
+          # Add your verification commands here

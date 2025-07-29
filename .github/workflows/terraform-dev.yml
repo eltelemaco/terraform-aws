@@ -1,0 +1,54 @@
+name: "Development Environment CI/CD"
+
+on:
+  push:
+    branches: ["develop", "feature/*"]
+    paths:
+      - "infrastructure/environments/dev/**"
+      - "infrastructure/modules/**"
+      - "app/**"
+  pull_request:
+    branches: ["develop"]
+    paths:
+      - "infrastructure/environments/dev/**"
+      - "infrastructure/modules/**"
+      - "app/**"
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  terraform-dev:
+    name: "Development Environment"
+    uses: ./.github/workflows/terraform-reusable.yml
+    with:
+      environment: "dev"
+      terraform_version: "1.5.0"
+      working_directory: "infrastructure/environments/dev"
+      aws_region: "us-east-1"
+      auto_apply: ${{ github.ref == 'refs/heads/develop' && github.event_name == 'push' }}
+      var_file: "terraform.tfvars"
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  notify-slack:
+    name: "Notify Slack"
+    runs-on: ubuntu-latest
+    needs: terraform-dev
+    if: always()
+    steps:
+      - name: Slack Notification
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: "terraform-dev"
+          slack-message: |
+            Development environment deployment: ${{ needs.terraform-dev.result }}
+            Actor: ${{ github.actor }}
+            Commit: ${{ github.sha }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        if: env.SLACK_BOT_TOKEN != ''

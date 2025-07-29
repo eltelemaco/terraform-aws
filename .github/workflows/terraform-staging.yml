@@ -1,0 +1,101 @@
+name: "Staging Environment CI/CD"
+
+on:
+  push:
+    branches: ["main", "release/*"]
+    paths:
+      - "infrastructure/environments/staging/**"
+      - "infrastructure/modules/**"
+      - "app/**"
+  release:
+    types: ["prereleased"]
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  terraform-staging:
+    name: "Staging Environment"
+    uses: ./.github/workflows/terraform-reusable.yml
+    with:
+      environment: "staging"
+      terraform_version: "1.5.0"
+      working_directory: "infrastructure/environments/staging"
+      aws_region: "us-west-2"
+      auto_apply: ${{ github.event_name == 'release' || (github.ref == 'refs/heads/main' && github.event_name == 'push') }}
+      var_file: "terraform.tfvars"
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  integration-tests:
+    name: "Integration Tests"
+    runs-on: ubuntu-latest
+    needs: terraform-staging
+    if: needs.terraform-staging.outputs.apply_status == 'success'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Wait for Infrastructure
+        run: sleep 300 # Wait 5 minutes for infrastructure to be ready
+
+      - name: Run Integration Tests
+        run: |
+          echo "Running integration tests against staging environment"
+          # Add your integration test commands here
+          # Example: curl -f https://staging.example.com/health
+
+      - name: Test Dagster Application
+        run: |
+          echo "Testing Dagster application in staging"
+          # Add Dagster-specific tests here
+
+  promote-to-prod:
+    name: "Promote to Production"
+    runs-on: ubuntu-latest
+    needs: [terraform-staging, integration-tests]
+    if: github.event_name == 'release' && github.event.action == 'prereleased' && needs.integration-tests.result == 'success'
+    environment: production-approval
+    steps:
+      - name: Create Production Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const release = await github.rest.repos.getRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: context.payload.release.id
+            });
+
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: context.payload.release.id,
+              prerelease: false,
+              draft: false
+            });
+
+            core.info('Release promoted to production');
+
+  notify-staging:
+    name: "Notify Staging Deployment"
+    runs-on: ubuntu-latest
+    needs: terraform-staging
+    if: always()
+    steps:
+      - name: Slack Notification
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: "terraform-staging"
+          slack-message: |
+            Staging environment deployment: ${{ needs.terraform-staging.result }}
+            Actor: ${{ github.actor }}
+            Commit: ${{ github.sha }}
+            Release: ${{ github.event.release.tag_name || 'N/A' }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        if: env.SLACK_BOT_TOKEN != ''

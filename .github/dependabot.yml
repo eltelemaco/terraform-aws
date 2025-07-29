@@ -1,0 +1,84 @@
+# Dependabot configuration for automatic dependency updates
+# This file configures Dependabot to automatically update GitHub Actions and other dependencies
+
+version: 2
+updates:
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "eltelemaco"
+    assignees:
+      - "eltelemaco"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "security"
+
+  # Enable version updates for Terraform configurations
+  - package-ecosystem: "terraform"
+    directory: "/infrastructure"
+    schedule:
+      interval: "weekly" 
+      day: "tuesday"
+      time: "10:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "eltelemaco"
+    assignees:
+      - "eltelemaco"
+    commit-message:
+      prefix: "feat"
+      prefix-development: "feat"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "terraform"
+      - "infrastructure"
+
+  # Enable version updates for any pip requirements
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday" 
+      time: "11:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "eltelemaco"
+    assignees:
+      - "eltelemaco"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "python"
+
+  # Enable version updates for Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "12:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "eltelemaco"
+    assignees:
+      - "eltelemaco"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "docker"

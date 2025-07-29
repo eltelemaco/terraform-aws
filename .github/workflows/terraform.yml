@@ -1,63 +1,87 @@
-name: "Terraform CI/CD"
+name: "Terraform CI/CD Orchestrator"
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "develop"]
 
 permissions:
   contents: read
   pull-requests: write
+  id-token: write
 
 jobs:
-  terraform:
-    name: "Terraform"
+  detect-changes:
+    name: "Detect Infrastructure Changes"
     runs-on: ubuntu-latest
-    environment: develop
-
-    # Use the Bash shell regardless of the GitHub Actions runner's operating system
-    defaults:
-      run:
-        shell: bash
-
+    outputs:
+      dev-changed: ${{ steps.changes.outputs.dev }}
+      staging-changed: ${{ steps.changes.outputs.staging }}
+      prod-changed: ${{ steps.changes.outputs.prod }}
+      modules-changed: ${{ steps.changes.outputs.modules }}
+      apps-changed: ${{ steps.changes.outputs.apps }}
     steps:
-      # Checkout the repository to the GitHub Actions runner
       - name: Checkout
         uses: actions/checkout@v4
-
-      # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.5.0
+          fetch-depth: 0
 
-      # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
-      - name: Terraform Init
-        run: terraform init
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Detect Changes
+        # Use verified dorny/paths-filter action - maintained by a trusted contributor
+        # Version 3.0.2 with security improvements and better performance
+        uses: dorny/paths-filter@v3.0.2
+        id: changes
+        with:
+          filters: |
+            dev:
+              - 'infrastructure/environments/dev/**'
+            staging:
+              - 'infrastructure/environments/staging/**'
+            prod:
+              - 'infrastructure/environments/prod/**'
+            modules:
+              - 'infrastructure/modules/**'
+            apps:
+              - 'app/**'
 
-      # Checks that all Terraform configuration files adhere to a canonical format
-      - name: Terraform Format
-        run: terraform fmt -check
+  trigger-dev:
+    name: "Trigger Development Workflow"
+    needs: detect-changes
+    if: |
+      (needs.detect-changes.outputs.dev-changed == 'true' || 
+       needs.detect-changes.outputs.modules-changed == 'true' || 
+       needs.detect-changes.outputs.apps-changed == 'true') &&
+      (github.ref == 'refs/heads/develop' || github.base_ref == 'develop')
+    uses: ./.github/workflows/terraform-dev.yml
 
-      # Validate Terraform configuration files
-      - name: Terraform Validate
-        run: terraform validate
+  trigger-staging:
+    name: "Trigger Staging Workflow"
+    needs: detect-changes
+    if: |
+      (needs.detect-changes.outputs.staging-changed == 'true' || 
+       needs.detect-changes.outputs.modules-changed == 'true' || 
+       needs.detect-changes.outputs.apps-changed == 'true') &&
+      github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/terraform-staging.yml
 
-      # Generates an execution plan for Terraform
-      - name: Terraform Plan
-        run: terraform plan -input=false
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-      # On push to "main", build or change infrastructure according to Terraform configuration files
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve -input=false
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  summary:
+    name: "Deployment Summary"
+    runs-on: ubuntu-latest
+    needs: [detect-changes, trigger-dev, trigger-staging]
+    if: always()
+    steps:
+      - name: Create Summary
+        run: |
+          echo "## 🚀 Terraform Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Changes Detected:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Development:** ${{ needs.detect-changes.outputs.dev-changed }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Staging:** ${{ needs.detect-changes.outputs.staging-changed }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production:** ${{ needs.detect-changes.outputs.prod-changed }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Modules:** ${{ needs.detect-changes.outputs.modules-changed }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Applications:** ${{ needs.detect-changes.outputs.apps-changed }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Workflow Results:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Development:** ${{ needs.trigger-dev.result || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Staging:** ${{ needs.trigger-staging.result || 'skipped' }}" >> $GITHUB_STEP_SUMMARY

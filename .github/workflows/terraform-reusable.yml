@@ -1,0 +1,186 @@
+name: "Reusable Terraform Workflow"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Target environment (dev, staging, prod)"
+        required: true
+        type: string
+      terraform_version:
+        description: "Terraform version to use"
+        required: false
+        type: string
+        default: "1.5.0"
+      working_directory:
+        description: "Working directory for Terraform operations"
+        required: true
+        type: string
+      aws_region:
+        description: "AWS region for deployment"
+        required: false
+        type: string
+        default: "us-east-1"
+      auto_apply:
+        description: "Whether to automatically apply changes"
+        required: false
+        type: boolean
+        default: false
+      destroy_mode:
+        description: "Whether to destroy infrastructure"
+        required: false
+        type: boolean
+        default: false
+      var_file:
+        description: "Path to terraform.tfvars file"
+        required: false
+        type: string
+        default: "terraform.tfvars"
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        description: "AWS Access Key ID"
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        description: "AWS Secret Access Key"
+        required: true
+    outputs:
+      terraform_plan_output:
+        description: "Terraform plan output"
+        value: ${{ jobs.terraform.outputs.plan_output }}
+      terraform_apply_status:
+        description: "Terraform apply status"
+        value: ${{ jobs.terraform.outputs.apply_status }}
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write # For OIDC
+
+jobs:
+  terraform:
+    name: "Terraform - ${{ inputs.environment }}"
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    outputs:
+      plan_output: ${{ steps.plan.outputs.stdout }}
+      apply_status: ${{ steps.apply.outcome }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working_directory }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.terraform_version }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Terraform Init
+        id: init
+        run: |
+          echo "Initializing Terraform for environment: ${{ inputs.environment }}"
+          terraform init -backend-config="key=terraform-${{ inputs.environment }}.tfstate"
+        env:
+          TF_VAR_environment: ${{ inputs.environment }}
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          echo "Planning Terraform changes for environment: ${{ inputs.environment }}"
+          if [ "${{ inputs.destroy_mode }}" == "true" ]; then
+            terraform plan -destroy -input=false -var-file="${{ inputs.var_file }}" -out=tfplan
+          else
+            terraform plan -input=false -var-file="${{ inputs.var_file }}" -out=tfplan
+          fi
+        env:
+          TF_VAR_environment: ${{ inputs.environment }}
+
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      - name: Comment PR (Plan)
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+
+            **Environment:** \`${{ inputs.environment }}\`
+            **Working Directory:** \`${{ inputs.working_directory }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+
+            </details>
+
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Apply
+        id: apply
+        if: inputs.auto_apply == true
+        run: |
+          echo "Applying Terraform changes for environment: ${{ inputs.environment }}"
+          terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_environment: ${{ inputs.environment }}
+
+      - name: Terraform Destroy
+        id: destroy
+        if: inputs.destroy_mode == true && inputs.auto_apply == true
+        run: |
+          echo "Destroying Terraform resources for environment: ${{ inputs.environment }}"
+          terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_environment: ${{ inputs.environment }}
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terraform-plan-${{ inputs.environment }}
+          path: ${{ inputs.working_directory }}/tfplan
+          retention-days: 30
+
+      - name: Upload Terraform State
+        uses: actions/upload-artifact@v4
+        if: steps.apply.outcome == 'success' || steps.destroy.outcome == 'success'
+        with:
+          name: terraform-state-${{ inputs.environment }}
+          path: ${{ inputs.working_directory }}/terraform.tfstate*
+          retention-days: 90

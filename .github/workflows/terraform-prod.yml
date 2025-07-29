@@ -1,0 +1,153 @@
+name: "Production Environment CI/CD"
+
+on:
+  release:
+    types: ["released"]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: true
+        type: choice
+        options:
+          - deploy
+          - destroy
+        default: deploy
+      confirm_production:
+        description: "Type 'CONFIRM' to proceed with production deployment"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  security-scan:
+    name: "Security Scan"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Checkov Security Scan
+        uses: bridgecrewio/checkov-action@v12.2748.0
+        with:
+          directory: infrastructure/environments/prod
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
+
+  terraform-prod:
+    name: "Production Environment"
+    needs: security-scan
+    if: |
+      (github.event_name == 'release' && github.event.action == 'released') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_production == 'CONFIRM')
+    uses: ./.github/workflows/terraform-reusable.yml
+    with:
+      environment: "prod"
+      terraform_version: "1.5.0"
+      working_directory: "infrastructure/environments/prod"
+      aws_region: "us-east-1"
+      auto_apply: true
+      destroy_mode: ${{ github.event.inputs.action == 'destroy' }}
+      var_file: "terraform.tfvars"
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  smoke-tests:
+    name: "Production Smoke Tests"
+    runs-on: ubuntu-latest
+    needs: terraform-prod
+    if: needs.terraform-prod.outputs.apply_status == 'success' && github.event.inputs.action != 'destroy'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Wait for Infrastructure
+        run: sleep 600 # Wait 10 minutes for production infrastructure
+
+      - name: Basic Health Checks
+        run: |
+          echo "Running production health checks"
+          # Add production health check commands
+
+      - name: Dagster Production Tests
+        run: |
+          echo "Testing Dagster in production"
+          # Add production-specific Dagster tests
+
+  rollback:
+    name: "Rollback on Failure"
+    runs-on: ubuntu-latest
+    needs: [terraform-prod, smoke-tests]
+    if: failure() && needs.terraform-prod.outputs.apply_status == 'success'
+    environment: production-rollback
+    steps:
+      - name: Manual Rollback Trigger
+        run: |
+          echo "Production deployment failed. Manual intervention required."
+          echo "Consider rolling back to previous release."
+          exit 1
+
+  notify-production:
+    name: "Notify Production Deployment"
+    runs-on: ubuntu-latest
+    needs: [terraform-prod, smoke-tests]
+    if: always()
+    steps:
+      - name: Determine Status
+        id: status
+        run: |
+          if [[ "${{ needs.terraform-prod.result }}" == "success" && "${{ needs.smoke-tests.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Slack Notification
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          channel-id: "terraform-production"
+          slack-message: |
+            🚀 Production deployment: ${{ steps.status.outputs.status }}
+            Actor: ${{ github.actor }}
+            Release: ${{ github.event.release.tag_name || 'Manual' }}
+            Action: ${{ github.event.inputs.action || 'deploy' }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        if: env.SLACK_BOT_TOKEN != ''
+
+  create-deployment:
+    name: "Create GitHub Deployment"
+    runs-on: ubuntu-latest
+    needs: terraform-prod
+    if: needs.terraform-prod.outputs.apply_status == 'success'
+    steps:
+      - name: Create Deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'production',
+              description: 'Production deployment via Terraform',
+              auto_merge: false
+            });
+
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.data.id,
+              state: 'success',
+              description: 'Deployment completed successfully'
+            });
