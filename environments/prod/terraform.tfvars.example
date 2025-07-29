@@ -1,0 +1,211 @@
+# Production Environment Configuration Example
+# CRITICAL: Review all security settings before deployment
+# Copy this file to terraform.tfvars and customize values
+
+# AWS Configuration
+aws_region  = "us-west-2"
+environment = "prod"
+
+# VPC Configuration
+vpc_name = "prod-vpc"
+vpc_cidr = "10.2.0.0/16"
+
+# Subnet Configuration - Production CIDR range
+private_subnets     = ["10.2.1.0/24", "10.2.2.0/24", "10.2.3.0/24"]
+public_subnets      = ["10.2.101.0/24", "10.2.102.0/24", "10.2.103.0/24"]
+database_subnets    = ["10.2.201.0/24", "10.2.202.0/24", "10.2.203.0/24"]
+elasticache_subnets = ["10.2.221.0/24", "10.2.222.0/24", "10.2.223.0/24"]
+intra_subnets       = ["10.2.51.0/24", "10.2.52.0/24", "10.2.53.0/24"]
+
+# NAT Gateway Configuration - HA required for production
+enable_nat_gateway     = true
+single_nat_gateway     = false  # MUST be false for production HA
+one_nat_gateway_per_az = true   # MUST be true for production HA
+
+# DNS Configuration
+enable_dns_hostnames = true
+enable_dns_support   = true
+
+# VPC Flow Logs - Required for production compliance
+enable_flow_log                      = true
+create_flow_log_cloudwatch_log_group = true
+create_flow_log_cloudwatch_iam_role  = true
+
+# EKS Configuration
+cluster_name    = "prod-eks-cluster"
+cluster_version = "1.31"
+
+# Cluster Endpoint Access - SECURE CONFIGURATION
+endpoint_public_access       = false  # Private-only for production
+endpoint_private_access      = true   # Required for private access
+endpoint_public_access_cidrs = []     # No public access
+
+# Authentication - API-only for production
+authentication_mode                        = "API"
+enable_cluster_creator_admin_permissions = true
+
+# Production Node Groups - High availability and performance
+eks_managed_node_groups = {
+  prod_general = {
+    name = "prod-general-nodes"
+    
+    min_size     = 3
+    max_size     = 20
+    desired_size = 6
+
+    instance_types = ["m5.xlarge", "m5.2xlarge"]
+    capacity_type  = "ON_DEMAND"  # Only ON_DEMAND for production
+    
+    disk_size = 200
+    disk_type = "gp3"
+    disk_iops = 3000
+    disk_throughput = 125
+
+    labels = {
+      Environment  = "prod"
+      NodeGroup    = "general"
+      WorkloadType = "general"
+    }
+
+    tags = {
+      Environment = "prod"
+      NodeGroup   = "general"
+      Backup      = "daily"
+    }
+  }
+
+  prod_compute = {
+    name = "prod-compute-nodes"
+    
+    min_size     = 2
+    max_size     = 10
+    desired_size = 3
+
+    instance_types = ["c5.2xlarge", "c5.4xlarge"]
+    capacity_type  = "ON_DEMAND"
+    
+    disk_size = 200
+    disk_type = "gp3"
+    disk_iops = 3000
+    disk_throughput = 125
+
+    labels = {
+      Environment  = "prod"
+      NodeGroup    = "compute"
+      WorkloadType = "compute-intensive"
+    }
+
+    taints = [{
+      key    = "workload-type"
+      value  = "compute"
+      effect = "NO_SCHEDULE"
+    }]
+
+    tags = {
+      Environment = "prod"
+      NodeGroup   = "compute"
+      Backup      = "daily"
+    }
+  }
+
+  prod_memory = {
+    name = "prod-memory-nodes"
+    
+    min_size     = 1
+    max_size     = 5
+    desired_size = 2
+
+    instance_types = ["r5.xlarge", "r5.2xlarge"]
+    capacity_type  = "ON_DEMAND"
+    
+    disk_size = 200
+    disk_type = "gp3"
+    disk_iops = 3000
+    disk_throughput = 125
+
+    labels = {
+      Environment  = "prod"
+      NodeGroup    = "memory"
+      WorkloadType = "memory-intensive"
+    }
+
+    taints = [{
+      key    = "workload-type"
+      value  = "memory"
+      effect = "NO_SCHEDULE"
+    }]
+
+    tags = {
+      Environment = "prod"
+      NodeGroup   = "memory"
+      Backup      = "daily"
+    }
+  }
+}
+
+# Logging Configuration - Full logging for production
+enabled_log_types                       = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+cloudwatch_log_group_retention_in_days = 90
+
+# KMS Configuration - Required for production
+create_kms_key          = true
+enable_kms_key_rotation = true
+
+# IRSA
+enable_irsa = true
+
+# IMPORTANT: Configure access entries for your production team
+# access_entries = {
+#   platform_admin = {
+#     principal_arn     = "arn:aws:iam::ACCOUNT:role/PlatformAdminRole"
+#     kubernetes_groups = ["system:masters"]
+#     type             = "STANDARD"
+#   }
+#   devops_team = {
+#     principal_arn = "arn:aws:iam::ACCOUNT:role/DevOpsTeamRole"
+#     policy_associations = {
+#       admin = {
+#         policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+#         access_scope = {
+#           type = "cluster"
+#         }
+#       }
+#     }
+#     type = "STANDARD"
+#   }
+#   ci_cd_role = {
+#     principal_arn = "arn:aws:iam::ACCOUNT:role/GitHubActions-Production"
+#     policy_associations = {
+#       editor = {
+#         policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
+#         access_scope = {
+#           type       = "namespace"
+#           namespaces = ["default", "production"]
+#         }
+#       }
+#     }
+#     type = "STANDARD"
+#   }
+# }
+
+# Production Tags
+tags = {
+  Terraform      = "true"
+  Environment    = "prod"
+  Project        = "terraform-aws"
+  Owner          = "Platform Team"
+  CostCenter     = "Engineering"
+  Purpose        = "Production workloads"
+  BackupPolicy   = "daily"
+  SecurityLevel  = "high"
+  Compliance     = "required"
+}
+
+cluster_tags = {
+  GithubRepo      = "terraform-aws"
+  GithubOrg       = "your-org"
+  ClusterType     = "production"
+  BackupPolicy    = "daily"
+  MonitoringLevel = "comprehensive"
+  SecurityScan    = "enabled"
+}

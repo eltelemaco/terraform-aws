@@ -36,5 +36,12 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+# VS Code workspace settings (optional - remove if you want to commit these)
+.vscode/settings.json
+.vscode/launch.json
+
 # Ignore vscode AI rules
 .github/copilot-instructions.md
+.vscode/extensions.json
+.vscode/mcp.json
+MCP_SETUP.md

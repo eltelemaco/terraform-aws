@@ -1,0 +1,197 @@
+# Staging Environment Configuration Example
+# Copy this file to terraform.tfvars and customize values as needed
+# This configuration mimics production settings for testing
+
+# AWS Configuration
+aws_region  = "us-west-2"
+environment = "staging"
+
+# VPC Configuration
+vpc_name = "staging-vpc"
+vpc_cidr = "10.1.0.0/16"
+
+# Subnet Configuration - Different CIDR to avoid conflicts with dev
+private_subnets     = ["10.1.1.0/24", "10.1.2.0/24", "10.1.3.0/24"]
+public_subnets      = ["10.1.101.0/24", "10.1.102.0/24", "10.1.103.0/24"]
+database_subnets    = ["10.1.201.0/24", "10.1.202.0/24", "10.1.203.0/24"]
+elasticache_subnets = ["10.1.221.0/24", "10.1.222.0/24", "10.1.223.0/24"]
+intra_subnets       = ["10.1.51.0/24", "10.1.52.0/24", "10.1.53.0/24"]
+
+# NAT Gateway Configuration - Production-like for high availability
+enable_nat_gateway     = true
+single_nat_gateway     = false  # High availability - one per AZ
+one_nat_gateway_per_az = true
+
+# DNS Configuration
+enable_dns_hostnames = true
+enable_dns_support   = true
+
+# VPC Flow Logs
+enable_flow_log                      = true
+create_flow_log_cloudwatch_log_group = true
+create_flow_log_cloudwatch_iam_role  = true
+
+# EKS Configuration
+cluster_name    = "staging-eks-cluster"
+cluster_version = "1.31"
+
+# Cluster Endpoint Access - More secure for staging
+endpoint_public_access       = true
+endpoint_private_access      = true   # Enable private access
+endpoint_public_access_cidrs = ["0.0.0.0/0"]  # Restrict to company IP ranges
+
+# Authentication
+authentication_mode                        = "API_AND_CONFIG_MAP"
+enable_cluster_creator_admin_permissions = true
+
+# Cluster Addons - Production-ready set
+addons = {
+  coredns = {
+    most_recent = true
+  }
+  kube-proxy = {
+    most_recent = true
+  }
+  vpc-cni = {
+    most_recent = true
+    configuration_values = jsonencode({
+      env = {
+        ENABLE_PREFIX_DELEGATION = "true"
+        WARM_PREFIX_TARGET       = "1"
+      }
+    })
+  }
+  aws-ebs-csi-driver = {
+    most_recent = true
+  }
+  aws-efs-csi-driver = {
+    most_recent = true
+  }
+  aws-load-balancer-controller = {
+    most_recent = true
+  }
+  snapshot-controller = {
+    most_recent = true
+  }
+}
+
+# EKS Managed Node Groups - Production-like with multiple node groups
+eks_managed_node_groups = {
+  staging_general = {
+    name = "staging-general-nodes"
+    
+    min_size     = 2
+    max_size     = 10
+    desired_size = 3
+
+    instance_types = ["t3.large"]
+    capacity_type  = "ON_DEMAND"
+    
+    disk_size = 100
+    disk_type = "gp3"
+
+    update_config = {
+      max_unavailable_percentage = 25
+    }
+
+    labels = {
+      Environment  = "staging"
+      NodeGroup    = "general"
+      WorkloadType = "general"
+    }
+
+    tags = {
+      Environment = "staging"
+      NodeGroup   = "general"
+    }
+  }
+
+  staging_compute = {
+    name = "staging-compute-nodes"
+    
+    min_size     = 1
+    max_size     = 5
+    desired_size = 2
+
+    instance_types = ["c5.xlarge", "c5.2xlarge"]
+    capacity_type  = "SPOT"  # Use spot for cost optimization
+    
+    disk_size = 100
+    disk_type = "gp3"
+
+    update_config = {
+      max_unavailable_percentage = 50
+    }
+
+    labels = {
+      Environment  = "staging"
+      NodeGroup    = "compute"
+      WorkloadType = "compute-intensive"
+    }
+
+    taints = [{
+      key    = "workload-type"
+      value  = "compute"
+      effect = "NO_SCHEDULE"
+    }]
+
+    tags = {
+      Environment = "staging"
+      NodeGroup   = "compute"
+    }
+  }
+}
+
+# Logging Configuration - More comprehensive for staging
+enabled_log_types                       = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+cloudwatch_log_group_retention_in_days = 30
+
+# KMS Configuration - Enable encryption like production
+create_kms_key          = true
+enable_kms_key_rotation = true
+
+# IRSA
+enable_irsa = true
+
+# Access Entries - Add your team members and service accounts
+# access_entries = {
+#   staging_admin = {
+#     principal_arn     = "arn:aws:iam::123456789012:user/staging-admin"
+#     kubernetes_groups = ["system:masters"]
+#     type             = "STANDARD"
+#   }
+#   qa_team = {
+#     principal_arn     = "arn:aws:iam::123456789012:role/QA-Team-Role"
+#     kubernetes_groups = ["staging:qa"]
+#     type             = "STANDARD"
+#   }
+#   ci_cd_role = {
+#     principal_arn = "arn:aws:iam::123456789012:role/GitHubActions-Role"
+#     policy_associations = {
+#       admin = {
+#         policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+#         access_scope = {
+#           type = "cluster"
+#         }
+#       }
+#     }
+#     type = "STANDARD"
+#   }
+# }
+
+# Tags
+tags = {
+  Terraform   = "true"
+  Environment = "staging"
+  Project     = "terraform-aws"
+  Owner       = "Platform Team"
+  CostCenter  = "Engineering"
+  Purpose     = "Pre-production testing"
+}
+
+cluster_tags = {
+  GithubRepo    = "terraform-aws"
+  GithubOrg     = "your-org"
+  ClusterType   = "staging"
+  BackupPolicy  = "daily"
+}

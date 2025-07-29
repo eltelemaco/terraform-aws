@@ -1,0 +1,127 @@
+# Development Environment Configuration Example
+# Copy this file to terraform.tfvars and customize values as needed
+
+# AWS Configuration
+aws_region  = "us-west-2"
+environment = "dev"
+
+# VPC Configuration
+vpc_name = "dev-vpc"
+vpc_cidr = "10.0.0.0/16"
+
+# Subnet Configuration
+private_subnets     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+public_subnets      = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+database_subnets    = ["10.0.201.0/24", "10.0.202.0/24", "10.0.203.0/24"]
+elasticache_subnets = ["10.0.221.0/24", "10.0.222.0/24", "10.0.223.0/24"]
+intra_subnets       = ["10.0.51.0/24", "10.0.52.0/24", "10.0.53.0/24"]
+
+# NAT Gateway Configuration
+enable_nat_gateway     = true
+single_nat_gateway     = false  # Set to true to save costs in dev
+one_nat_gateway_per_az = true   # Set to false if single_nat_gateway is true
+
+# DNS Configuration
+enable_dns_hostnames = true
+enable_dns_support   = true
+
+# VPC Flow Logs
+enable_flow_log                      = true
+create_flow_log_cloudwatch_log_group = true
+create_flow_log_cloudwatch_iam_role  = true
+
+# EKS Configuration
+cluster_name    = "dev-eks-cluster"
+cluster_version = "1.31"
+
+# Cluster Endpoint Access
+endpoint_public_access       = true
+endpoint_private_access      = false
+endpoint_public_access_cidrs = ["0.0.0.0/0"]  # Restrict this to your IP ranges for better security
+
+# Authentication
+authentication_mode                        = "API_AND_CONFIG_MAP"
+enable_cluster_creator_admin_permissions = true
+
+# Cluster Addons
+addons = {
+  coredns = {
+    most_recent = true
+  }
+  kube-proxy = {
+    most_recent = true
+  }
+  vpc-cni = {
+    most_recent = true
+  }
+  aws-ebs-csi-driver = {
+    most_recent = true
+  }
+  aws-efs-csi-driver = {
+    most_recent = true
+  }
+  aws-load-balancer-controller = {
+    most_recent = true
+  }
+}
+
+# EKS Managed Node Groups
+eks_managed_node_groups = {
+  dev_nodes = {
+    name = "dev-node-group"
+    
+    min_size     = 1
+    max_size     = 3
+    desired_size = 2
+
+    instance_types = ["t3.medium"]
+    capacity_type  = "ON_DEMAND"  # Use SPOT for cost savings in dev
+    
+    disk_size = 50
+    disk_type = "gp3"
+
+    labels = {
+      Environment = "dev"
+      NodeGroup   = "dev-nodes"
+    }
+
+    tags = {
+      Environment = "dev"
+      NodeGroup   = "dev-nodes"
+    }
+  }
+}
+
+# Logging Configuration
+enabled_log_types                       = ["api", "audit", "authenticator"]  # Reduced for dev
+cloudwatch_log_group_retention_in_days = 7
+
+# KMS Configuration
+create_kms_key          = false  # Set to true for encryption at rest
+enable_kms_key_rotation = false
+
+# IRSA
+enable_irsa = true
+
+# Access Entries - Add your team members here
+# access_entries = {
+#   developer = {
+#     principal_arn     = "arn:aws:iam::123456789012:user/developer"
+#     kubernetes_groups = ["system:masters"]
+#     type             = "STANDARD"
+#   }
+# }
+
+# Tags
+tags = {
+  Terraform   = "true"
+  Environment = "dev"
+  Project     = "terraform-aws"
+  Owner       = "DevTeam"
+  CostCenter  = "Engineering"
+}
+
+cluster_tags = {
+  GithubRepo = "terraform-aws"
+  GithubOrg  = "your-org"
+}

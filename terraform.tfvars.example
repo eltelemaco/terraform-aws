@@ -1,0 +1,19 @@
+# Project Configuration
+project_name = "terraform-aws-devops"
+environment  = "dev"
+owner        = "devops-team"
+
+# AWS Configuration
+aws_region = "us-west-2"
+
+# VPC Configuration
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-west-2a", "us-west-2b", "us-west-2c"]
+
+# EKS Configuration
+cluster_name                   = "devops-cluster"
+cluster_version               = "1.27"
+node_group_instance_types     = ["t3.medium"]
+node_group_desired_capacity   = 2
+node_group_max_capacity       = 4
+node_group_min_capacity       = 1
