@@ -1,6 +1,18 @@
 # EKS Module Variables
 # Configuration inputs for the EKS module using terraform-aws-modules/eks
 
+variable "module_source" {
+  description = "Source of the EKS module"
+  type        = string
+  default     = "terraform-aws-modules/eks/aws"
+}
+
+variable "module_version" {
+  description = "Version constraint for the EKS module"
+  type        = string
+  default     = "~> 21.0"
+}
+
 variable "cluster_name" {
   description = "Name of the EKS cluster"
   type        = string
@@ -15,6 +27,18 @@ variable "cluster_version" {
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
+}
+
+variable "module_name" {
+  description = "Name of the module for tagging purposes"
+  type        = string
+  default     = "eks"
+}
+
+variable "terraform_managed" {
+  description = "Flag to indicate if resource is managed by Terraform"
+  type        = string
+  default     = "true"
 }
 
 # VPC Configuration

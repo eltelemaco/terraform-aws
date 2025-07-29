@@ -84,7 +84,13 @@ module "vpc" {
 
 # EKS Module
 module "eks" {
-  source = "../../modules/eks"
+  source = var.eks_module_source
+
+  # Module configuration
+  module_source     = "terraform-aws-modules/eks/aws"
+  module_version    = var.eks_module_version
+  module_name       = var.eks_module_name
+  terraform_managed = var.eks_terraform_managed
 
   cluster_name    = var.cluster_name
   cluster_version = var.cluster_version

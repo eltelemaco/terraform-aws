@@ -357,3 +357,28 @@ variable "cluster_tags" {
     GithubOrg  = "terraform-aws"
   }
 }
+
+# EKS Module Configuration Variables
+variable "eks_module_source" {
+  description = "Source of the EKS module"
+  type        = string
+  default     = "../../modules/eks"
+}
+
+variable "eks_module_version" {
+  description = "Version constraint for the upstream EKS module"
+  type        = string
+  default     = "~> 21.0"
+}
+
+variable "eks_module_name" {
+  description = "Name of the EKS module for tagging purposes"
+  type        = string
+  default     = "eks"
+}
+
+variable "eks_terraform_managed" {
+  description = "Flag to indicate if EKS resources are managed by Terraform"
+  type        = string
+  default     = "true"
+}

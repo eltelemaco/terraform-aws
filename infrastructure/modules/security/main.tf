@@ -219,7 +219,7 @@ resource "aws_kms_key" "eks" {
 
   description             = "KMS key for EKS cluster ${var.cluster_name} encryption"
   deletion_window_in_days = var.kms_key_deletion_window_in_days
-  enable_key_rotation     = var.enable_kms_key_rotation # Enable key rotation
+  enable_key_rotation     = var.enable_kms_key_rotation # Enabled key rotation
 
   tags = merge(
     var.tags,

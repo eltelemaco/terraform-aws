@@ -1,5 +1,5 @@
-# Development Environment Main Configuration
-# This file orchestrates the infrastructure deployment for the development environment
+# Development Environment - Infrastructure Orchestration
+# Deploys and configures the complete development infrastructure stack
 
 terraform {
   required_version = ">= 1.0"
@@ -16,6 +16,10 @@ terraform {
     helm = {
       source  = "hashicorp/helm"
       version = ">= 2.14"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.6"
     }
   }
 
@@ -43,11 +47,11 @@ provider "aws" {
 }
 
 # Data sources
-data "aws_availability_zones" "available" {
+data "aws_availability_zones" "this" {
   state = "available"
 }
 
-data "aws_caller_identity" "current" {}
+data "aws_caller_identity" "this" {}
 
 # VPC Module
 module "vpc" {
@@ -57,7 +61,7 @@ module "vpc" {
   vpc_name           = var.vpc_name
   vpc_cidr           = var.vpc_cidr
   environment        = var.environment
-  availability_zones = data.aws_availability_zones.available.names
+  availability_zones = data.aws_availability_zones.this.names
 
   # Subnets
   private_subnets     = var.private_subnets
@@ -83,10 +87,41 @@ module "vpc" {
   tags = var.tags
 }
 
+# Security Module
+module "security" {
+  source = "../../modules/security"
+
+  cluster_name = var.cluster_name
+  environment  = var.environment
+  vpc_id       = module.vpc.vpc_id
+  vpc_cidr     = module.vpc.vpc_cidr_block
+
+  # Subnet configuration
+  private_subnet_ids = module.vpc.private_subnets
+
+  # API server access configuration
+  api_server_access_cidrs = var.endpoint_public_access_cidrs
+
+  # Security group controls for development
+  create_load_balancer_sg = true
+  create_database_sg      = false
+  create_efs_sg           = false
+
+  tags = var.tags
+
+  depends_on = [module.vpc]
+}
+
 # EKS Module
 module "eks" {
   # Module discovered and documented using Terraform MCP for compliance and best practices
-  source = "../../modules/eks"
+  source = var.eks_module_source
+
+  # Module configuration
+  module_source     = "terraform-aws-modules/eks/aws"
+  module_version    = var.eks_module_version
+  module_name       = var.eks_module_name
+  terraform_managed = var.eks_terraform_managed
 
   cluster_name    = var.cluster_name
   cluster_version = var.cluster_version
@@ -128,10 +163,10 @@ module "eks" {
   tags         = var.tags
   cluster_tags = var.cluster_tags
 
-  depends_on = [module.vpc]
+  depends_on = [module.vpc, module.security]
 }
 
-# Configure Kubernetes and Helm providers
+# Configure Kubernetes and Helm providers after EKS cluster creation
 provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
@@ -147,8 +182,8 @@ provider "helm" {
 }
 
 # AWS Load Balancer Controller
-module "aws_load_balancer_controller" {
-  source = "../../modules/aws_load_balancer_controller"
+module "alb_controller" {
+  source = "../../../app/aws_load_balancer_controller"
 
   cluster_name = module.eks.cluster_name
   aws_region   = var.aws_region
@@ -165,16 +200,10 @@ module "aws_load_balancer_controller" {
   replicas = 2
 
   # Resource limits for development
-  resources = {
-    requests = {
-      cpu    = "100m"
-      memory = "200Mi"
-    }
-    limits = {
-      cpu    = "200m"
-      memory = "500Mi"
-    }
-  }
+  cpu_request    = "100m"
+  cpu_limit      = "200m"
+  memory_request = "200Mi"
+  memory_limit   = "500Mi"
 
   tags = var.tags
 
@@ -182,5 +211,71 @@ module "aws_load_balancer_controller" {
   depends_on = [
     module.eks,
     module.eks.eks_managed_node_groups
+  ]
+}
+
+# Random password for Dagster PostgreSQL (if not provided)
+resource "random_password" "dagster_db" {
+  length  = 16
+  special = true
+  upper   = true
+  lower   = true
+  numeric = true
+}
+
+# Dagster Data Orchestration Platform
+module "dagster" {
+  source = "../../../app/dagster"
+
+  # Cluster configuration
+  cluster_name = module.eks.cluster_name
+  aws_region   = var.aws_region
+  vpc_id       = module.vpc.vpc_id
+
+  # Namespace configuration
+  namespace = var.dagster_namespace
+
+  # Helm chart configuration
+  chart_version = var.dagster_chart_version
+
+  # IRSA configuration for AWS services integration
+  enable_irsa       = var.dagster_enable_irsa
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_issuer_host  = replace(module.eks.cluster_oidc_issuer_url, "https://", "")
+
+  # Database configuration
+  postgresql_enabled  = var.dagster_postgresql_enabled
+  postgresql_password = var.dagster_postgresql_password != "" ? var.dagster_postgresql_password : "dagster-dev-${random_password.dagster_db.result}"
+
+  # Storage configuration
+  s3_bucket_name         = var.dagster_s3_bucket_name
+  enable_s3_compute_logs = var.enable_dagster_s3_logs
+
+  # Scaling configuration
+  replicas = var.dagster_replicas
+
+  # Resource configuration
+  webserver_resources = var.dagster_webserver_resources
+  daemon_resources    = var.dagster_daemon_resources
+
+  # Run launcher configuration
+  run_launcher_type = var.dagster_run_launcher_type
+
+  # Ingress configuration
+  ingress_enabled = var.dagster_ingress_enabled
+  ingress_host    = var.dagster_ingress_host
+  ingress_class   = var.dagster_ingress_class
+
+  # Monitoring and debug configuration
+  enable_prometheus_monitoring = var.dagster_enable_prometheus_monitoring
+  enable_debug_mode            = var.dagster_enable_debug_mode
+
+  tags = merge(var.tags, var.dagster_additional_tags)
+
+  # Ensure all infrastructure is ready
+  depends_on = [
+    module.eks,
+    module.alb_controller,
+    module.security
   ]
 }

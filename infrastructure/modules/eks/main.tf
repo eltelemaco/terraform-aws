@@ -2,8 +2,8 @@
 # Provides comprehensive EKS cluster management with managed node groups, Fargate, and auto mode support
 
 module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "~> 21.0"
+  source  = var.module_source
+  version = var.module_version
 
   name               = var.cluster_name
   kubernetes_version = var.cluster_version
@@ -79,9 +79,9 @@ module "eks" {
   tags = merge(
     var.tags,
     {
-      Terraform   = "true"
+      Terraform   = var.terraform_managed
       Environment = var.environment
-      Module      = "eks"
+      Module      = var.module_name
     }
   )
 

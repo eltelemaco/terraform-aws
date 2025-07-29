@@ -194,17 +194,74 @@ output "configure_kubectl" {
 }
 
 # AWS Load Balancer Controller Outputs
-output "aws_load_balancer_controller_role_arn" {
+output "alb_controller_role_arn" {
   description = "ARN of the IAM role for AWS Load Balancer Controller"
-  value       = module.aws_load_balancer_controller.iam_role_arn
+  value       = module.alb_controller.iam_role_arn
+}
+
+# AWS Load Balancer Controller Outputs
+output "alb_controller_role_arn" {
+  description = "ARN of the IAM role for AWS Load Balancer Controller"
+  value       = module.alb_controller.iam_role_arn
 }
 
 output "aws_load_balancer_controller_service_account" {
   description = "Name of the AWS Load Balancer Controller service account"
-  value       = module.aws_load_balancer_controller.service_account_name
+  value       = module.alb_controller.service_account_name
 }
 
 output "aws_load_balancer_controller_helm_status" {
   description = "Status of the AWS Load Balancer Controller Helm release"
-  value       = module.aws_load_balancer_controller.helm_release_status
+  value       = module.alb_controller.helm_release_status
+}
+
+# Dagster Data Orchestration Platform Outputs
+output "dagster_namespace" {
+  description = "Kubernetes namespace where Dagster is deployed"
+  value       = module.dagster.namespace
+}
+
+output "dagster_service_account_name" {
+  description = "Name of the Dagster service account"
+  value       = module.dagster.service_account_name
+}
+
+output "dagster_iam_role_arn" {
+  description = "ARN of the IAM role for Dagster (if IRSA is enabled)"
+  value       = module.dagster.iam_role_arn
+}
+
+output "dagster_helm_release_name" {
+  description = "Name of the Dagster Helm release"
+  value       = module.dagster.helm_release_name
+}
+
+output "dagster_helm_release_status" {
+  description = "Status of the Dagster Helm release"
+  value       = module.dagster.helm_release_status
+}
+
+output "dagster_postgresql_endpoint" {
+  description = "PostgreSQL endpoint for Dagster"
+  value       = module.dagster.postgresql_endpoint
+}
+
+output "dagster_ui_url" {
+  description = "URL to access Dagster UI"
+  value       = module.dagster.dagster_ui_url
+}
+
+output "dagster_kubectl_port_forward" {
+  description = "Command to port-forward to Dagster webserver"
+  value       = module.dagster.kubectl_port_forward
+}
+
+output "dagster_kubectl_get_pods" {
+  description = "Command to get Dagster pods"
+  value       = module.dagster.kubectl_get_pods
+}
+
+output "dagster_run_launcher_type" {
+  description = "Type of run launcher configured for Dagster"
+  value       = module.dagster.run_launcher_type
 }

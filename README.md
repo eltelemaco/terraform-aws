@@ -41,19 +41,29 @@ This infrastructure setup provides:
 ## 📁 Project Structure
 
 ```
-├── environments/           # Environment-specific configurations
-│   ├── dev/               # Development environment
-│   ├── staging/           # Staging environment
-│   └── prod/              # Production environment (planned)
-├── modules/               # Reusable Terraform modules
-│   ├── vpc/               # VPC networking module
-│   ├── eks/               # EKS cluster module
-│   └── security/          # Security-related resources (planned)
-├── shared/                # Shared configurations
-│   └── backend.tf         # Remote state backend configuration
+terraform-aws/
+├── infrastructure/               # 🏗️ Core Infrastructure
+│   ├── environments/            # Environment-specific configurations
+│   │   ├── dev/                 # Development environment
+│   │   ├── staging/             # Staging environment
+│   │   └── prod/                # Production environment
+│   └── modules/                 # Infrastructure modules
+│       ├── vpc/                 # VPC networking module
+│       ├── eks/                 # EKS cluster module
+│       └── security/            # Security groups, IAM roles
+├── app/                         # 🚀 Application Modules
+│   └── aws_load_balancer_controller/  # AWS Load Balancer Controller
+├── shared/                      # Shared configurations
+│   └── backend.tf               # Remote state backend configuration
 └── .github/
     └── copilot-instructions.md  # AI coding guidelines with MCP integration
 ```
+
+### 🏗️ Infrastructure vs Application Separation
+
+- **Infrastructure modules** (`infrastructure/modules/`): Core AWS services (VPC, EKS, Security)
+- **Application modules** (`app/`): Application-level deployments (Load Balancers, Services)
+- **Environment configs** (`infrastructure/environments/`): Orchestrate both infrastructure and applications
 
 ## 🚀 Quick Start
 

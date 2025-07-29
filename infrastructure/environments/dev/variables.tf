@@ -316,3 +316,180 @@ variable "cluster_tags" {
     GithubOrg  = "terraform-aws"
   }
 }
+
+# Dagster Configuration
+variable "dagster_s3_bucket_name" {
+  description = "S3 bucket name for Dagster storage and compute logs"
+  type        = string
+  default     = ""
+}
+
+variable "enable_dagster_s3_logs" {
+  description = "Enable S3 compute logs for Dagster"
+  type        = bool
+  default     = false
+}
+
+variable "dagster_replicas" {
+  description = "Number of Dagster webserver replicas"
+  type        = number
+  default     = 1
+}
+
+variable "dagster_webserver_resources" {
+  description = "Resource configuration for Dagster webserver"
+  type = object({
+    requests = optional(object({
+      cpu    = optional(string, "250m")
+      memory = optional(string, "512Mi")
+    }), {})
+    limits = optional(object({
+      cpu    = optional(string, "1000m")
+      memory = optional(string, "2Gi")
+    }), {})
+  })
+  default = {
+    requests = {
+      cpu    = "250m"
+      memory = "512Mi"
+    }
+    limits = {
+      cpu    = "1000m"
+      memory = "2Gi"
+    }
+  }
+}
+
+variable "dagster_daemon_resources" {
+  description = "Resource configuration for Dagster daemon"
+  type = object({
+    requests = optional(object({
+      cpu    = optional(string, "250m")
+      memory = optional(string, "512Mi")
+    }), {})
+    limits = optional(object({
+      cpu    = optional(string, "500m")
+      memory = optional(string, "1Gi")
+    }), {})
+  })
+  default = {
+    requests = {
+      cpu    = "250m"
+      memory = "512Mi"
+    }
+    limits = {
+      cpu    = "500m"
+      memory = "1Gi"
+    }
+  }
+}
+
+variable "dagster_ingress_enabled" {
+  description = "Enable ingress for Dagster webserver"
+  type        = bool
+  default     = false
+}
+
+variable "dagster_ingress_host" {
+  description = "Hostname for Dagster ingress"
+  type        = string
+  default     = ""
+}
+
+# Additional Dagster Configuration Variables
+variable "dagster_enable_irsa" {
+  description = "Enable IAM Roles for Service Accounts (IRSA) for Dagster"
+  type        = bool
+  default     = true
+}
+
+variable "dagster_postgresql_enabled" {
+  description = "Whether to deploy PostgreSQL in-cluster for Dagster"
+  type        = bool
+  default     = true
+}
+
+variable "dagster_postgresql_password" {
+  description = "PostgreSQL password for Dagster (leave empty for auto-generation)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "dagster_run_launcher_type" {
+  description = "Type of run launcher for Dagster (K8sRunLauncher or CeleryK8sRunLauncher)"
+  type        = string
+  default     = "K8sRunLauncher"
+
+  validation {
+    condition = contains([
+      "K8sRunLauncher",
+      "CeleryK8sRunLauncher"
+    ], var.dagster_run_launcher_type)
+    error_message = "Run launcher type must be K8sRunLauncher or CeleryK8sRunLauncher."
+  }
+}
+
+variable "dagster_ingress_class" {
+  description = "Ingress class for Dagster webserver"
+  type        = string
+  default     = "alb"
+}
+
+variable "dagster_enable_prometheus_monitoring" {
+  description = "Enable Prometheus monitoring for Dagster"
+  type        = bool
+  default     = false
+}
+
+variable "dagster_enable_debug_mode" {
+  description = "Enable debug mode for Dagster development"
+  type        = bool
+  default     = true
+}
+
+variable "dagster_namespace" {
+  description = "Kubernetes namespace for Dagster deployment"
+  type        = string
+  default     = "dagster"
+}
+
+variable "dagster_chart_version" {
+  description = "Version of the Dagster Helm chart to deploy"
+  type        = string
+  default     = "1.8.14"
+}
+
+variable "dagster_additional_tags" {
+  description = "Additional tags to apply to Dagster resources"
+  type        = map(string)
+  default = {
+    Component = "dagster"
+    Purpose   = "data-orchestration"
+  }
+}
+
+# EKS Module Configuration Variables
+variable "eks_module_source" {
+  description = "Source of the EKS module"
+  type        = string
+  default     = "../../modules/eks"
+}
+
+variable "eks_module_version" {
+  description = "Version constraint for the upstream EKS module"
+  type        = string
+  default     = "~> 21.0"
+}
+
+variable "eks_module_name" {
+  description = "Name of the EKS module for tagging purposes"
+  type        = string
+  default     = "eks"
+}
+
+variable "eks_terraform_managed" {
+  description = "Flag to indicate if EKS resources are managed by Terraform"
+  type        = string
+  default     = "true"
+}
