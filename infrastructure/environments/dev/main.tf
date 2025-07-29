@@ -148,7 +148,7 @@ provider "helm" {
 
 # AWS Load Balancer Controller
 module "aws_load_balancer_controller" {
-  source = "../../modules/aws-load-balancer-controller"
+  source = "../../modules/aws_load_balancer_controller"
 
   cluster_name = module.eks.cluster_name
   aws_region   = var.aws_region
@@ -159,16 +159,22 @@ module "aws_load_balancer_controller" {
   create_namespace = false
 
   # Use latest stable version
-  helm_chart_version = "1.8.1"
+  chart_version = "1.8.1"
 
   # Development configuration - 2 replicas for HA
-  replica_count = 2
+  replicas = 2
 
   # Resource limits for development
-  cpu_request    = "100m"
-  cpu_limit      = "200m"
-  memory_request = "200Mi"
-  memory_limit   = "500Mi"
+  resources = {
+    requests = {
+      cpu    = "100m"
+      memory = "200Mi"
+    }
+    limits = {
+      cpu    = "200m"
+      memory = "500Mi"
+    }
+  }
 
   tags = var.tags
 

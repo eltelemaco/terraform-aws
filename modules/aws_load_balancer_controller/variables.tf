@@ -39,19 +39,19 @@ variable "helm_release_name" {
   default     = "aws-load-balancer-controller"
 }
 
-variable "helm_chart_version" {
+variable "chart_version" {
   description = "Version of the AWS Load Balancer Controller Helm chart"
   type        = string
   default     = "1.8.1" # Latest stable version as of July 2025
 }
 
-variable "helm_timeout" {
+variable "helm_timeout_seconds" {
   description = "Timeout for Helm operations in seconds"
   type        = number
   default     = 600
 }
 
-variable "replica_count" {
+variable "replicas" {
   description = "Number of replicas for the AWS Load Balancer Controller"
   type        = number
   default     = 2
