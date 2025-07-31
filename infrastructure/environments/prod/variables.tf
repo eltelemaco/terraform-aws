@@ -434,3 +434,170 @@ variable "cluster_tags" {
     GithubOrg  = "terraform-aws"
   }
 }
+
+# Monitoring Configuration
+variable "grafana_admin_password" {
+  description = "Admin password for Grafana"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "slack_webhook_url" {
+  description = "Slack webhook URL for alerting"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "pagerduty_key" {
+  description = "PagerDuty integration key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# Dagster Configuration for Production
+variable "dagster_s3_bucket_name" {
+  description = "S3 bucket name for Dagster storage"
+  type        = string
+  default     = ""
+}
+
+variable "enable_dagster_s3_logs" {
+  description = "Enable S3 compute logs for Dagster"
+  type        = bool
+  default     = true
+}
+
+variable "dagster_replicas" {
+  description = "Number of Dagster replicas"
+  type        = number
+  default     = 3
+}
+
+variable "dagster_webserver_resources" {
+  description = "Resource allocation for Dagster webserver"
+  type = object({
+    requests = object({
+      cpu    = string
+      memory = string
+    })
+    limits = object({
+      cpu    = string
+      memory = string
+    })
+  })
+  default = {
+    requests = {
+      cpu    = "500m"
+      memory = "1Gi"
+    }
+    limits = {
+      cpu    = "1000m"
+      memory = "2Gi"
+    }
+  }
+}
+
+variable "dagster_daemon_resources" {
+  description = "Resource allocation for Dagster daemon"
+  type = object({
+    requests = object({
+      cpu    = string
+      memory = string
+    })
+    limits = object({
+      cpu    = string
+      memory = string
+    })
+  })
+  default = {
+    requests = {
+      cpu    = "500m"
+      memory = "1Gi"
+    }
+    limits = {
+      cpu    = "1000m"
+      memory = "2Gi"
+    }
+  }
+}
+
+variable "dagster_ingress_enabled" {
+  description = "Enable ingress for Dagster"
+  type        = bool
+  default     = true
+}
+
+variable "dagster_ingress_host" {
+  description = "Hostname for Dagster ingress"
+  type        = string
+  default     = ""
+}
+
+variable "dagster_enable_irsa" {
+  description = "Enable IRSA for Dagster"
+  type        = bool
+  default     = true
+}
+
+variable "dagster_postgresql_enabled" {
+  description = "Enable PostgreSQL for Dagster"
+  type        = bool
+  default     = true
+}
+
+variable "dagster_postgresql_password" {
+  description = "PostgreSQL password for Dagster"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "dagster_run_launcher_type" {
+  description = "Type of run launcher for Dagster"
+  type        = string
+  default     = "K8sRunLauncher"
+  validation {
+    condition = contains([
+      "DefaultRunLauncher",
+      "K8sRunLauncher",
+      "CeleryK8sRunLauncher"
+    ], var.dagster_run_launcher_type)
+    error_message = "Run launcher type must be one of: DefaultRunLauncher, K8sRunLauncher, CeleryK8sRunLauncher."
+  }
+}
+
+variable "dagster_ingress_class" {
+  description = "Ingress class for Dagster"
+  type        = string
+  default     = "alb"
+}
+
+variable "dagster_enable_prometheus_monitoring" {
+  description = "Enable Prometheus monitoring for Dagster"
+  type        = bool
+  default     = true
+}
+
+variable "dagster_namespace" {
+  description = "Kubernetes namespace for Dagster"
+  type        = string
+  default     = "dagster"
+}
+
+variable "dagster_chart_version" {
+  description = "Helm chart version for Dagster"
+  type        = string
+  default     = "1.8.7"
+}
+
+variable "dagster_additional_tags" {
+  description = "Additional tags for Dagster resources"
+  type        = map(string)
+  default = {
+    Application = "dagster"
+    Component   = "data-platform"
+  }
+}

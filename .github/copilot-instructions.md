@@ -7,7 +7,7 @@ This project implements infrastructure as code for AWS DevOps CI/CD pipelines us
 This is a Terraform-based infrastructure project targeting AWS cloud services for DevOps automation:
 
 - **Infrastructure**: Terraform modules for AWS resources (VPC, EKS, RDS, etc.)
-- **Container Orchestration**: Kubernetes deployments via EKS
+- **Container Orchestration**: Kubernetes deployments via manifest files and Helm charts
 - **Package Management**: Helm charts for application deployment
 - **CI/CD**: Automated pipeline infrastructure for continuous deployment with GitHub Actions
 
@@ -19,23 +19,33 @@ terraform-aws/
 │   ├── environments/              # Environment-specific configurations
 │   │   ├── dev/                   # Development environment
 │   │   ├── staging/               # Staging environment
-│   │   └── prod/                  # Production environment
-│   └── modules/                   # Infrastructure modules
-│       ├── vpc/                   # VPC module
-│       ├── eks/                   # EKS module
-│       └── security/              # Security module
+│   │   └── prod/                  # Production environment (NEW)
+│   ├── modules/                   # Infrastructure modules
+│   │   ├── vpc/                   # VPC module
+│   │   ├── eks/                   # EKS module
+│   │   ├── rds/                   # RDS database module (NEW)
+│   │   ├── monitoring/            # Monitoring stack module (NEW)
+│   │   └── security/              # Security module
+│   └── kubernetes/                # Kubernetes manifests (if needed)
 ├── app/                           # 🚀 Application Modules
-│   └── aws_load_balancer_controller/  # AWS Load Balancer Controller
+│   ├── aws_load_balancer_controller/  # AWS Load Balancer Controller
+│   └── dagster/                   # Dagster data orchestration (NEW)
 ├── shared/                        # Shared resources across environments
 ├── docs/                          # Documentation
-└── .github/                       # GitHub workflows and instructions
+├── .github/                       # GitHub workflows and instructions
+├── DEPLOYMENT-GUIDE.md            # Complete deployment guide (NEW)
+└── IMPLEMENTATION-COMPLETE.md     # Project completion summary (NEW)
 ```
 
 ### 🏗️ Architecture Separation
 
-- **Infrastructure modules** (`infrastructure/modules/`): Core AWS services (VPC, EKS, Security)
-- **Application modules** (`app/`): Application-level deployments and services
-- **Environment orchestration** (`infrastructure/environments/`): Combines both layers
+- **Infrastructure modules** (`infrastructure/modules/`): Core AWS services (VPC, EKS, RDS, Security, Monitoring)
+- **Application modules** (`app/`): Application-level deployments and services (Dagster, ALB Controller)
+- **Environment orchestration** (`infrastructure/environments/`): Combines both layers (dev, staging, prod)
+- **Shared resources** (`shared/`): Common configurations and utilities
+- **Documentation** (`docs/`): Project documentation and guides  
+- **GitHub Workflows** (`.github/`): CI/CD pipeline definitions and automation
+- **Kubernetes Manifests** (`infrastructure/kubernetes/`): Kubernetes manifest files for application deployment
 
 ## MCP Tools Integration
 
@@ -164,8 +174,18 @@ infrastructure/
 │   │   ├── variables.tf      # EKS module inputs
 │   │   ├── outputs.tf        # EKS module outputs
 │   │   └── versions.tf       # EKS module provider requirements
+│   ├── rds/
+│   │   ├── main.tf           # RDS PostgreSQL with HA configuration
+│   │   ├── variables.tf      # RDS module inputs
+│   │   ├── outputs.tf        # RDS module outputs
+│   │   └── versions.tf       # RDS module provider requirements
+│   ├── monitoring/
+│   │   ├── main.tf           # Prometheus/Grafana stack
+│   │   ├── variables.tf      # Monitoring module inputs
+│   │   ├── outputs.tf        # Monitoring module outputs
+│   │   └── versions.tf       # Monitoring module provider requirements
 │   └── security/
-│       ├── main.tf           # Security groups, IAM roles
+│       ├── main.tf           # Security groups, IAM roles, KMS, GuardDuty
 │       ├── variables.tf      # Security module inputs
 │       ├── outputs.tf        # Security module outputs
 │       └── versions.tf       # Security module provider requirements
