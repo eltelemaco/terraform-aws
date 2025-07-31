@@ -1,10 +1,23 @@
 {
 	"servers": {
+		"MCP_DOCKER": {
+			"type": "stdio",
+			"command": "docker",
+			"args": [
+				"run",
+				"-i",
+				"--rm",
+				"mcp/kubernetes",
+			]
+		},
 		"context7": {
 			"type": "stdio",
 			"command": "npx",
-			"args": ["-y", "@upstash/context7-mcp"]
-		},		
+			"args": [
+				"-y",
+				"@upstash/context7-mcp"
+			]
+		},
 		"terraform": {
 			"type": "stdio",
 			"command": "docker",
