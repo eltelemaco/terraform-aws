@@ -38,7 +38,7 @@ jobs:
     if: needs.terraform-staging.outputs.apply_status == 'success'
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Wait for Infrastructure
         run: sleep 300 # Wait 5 minutes for infrastructure to be ready

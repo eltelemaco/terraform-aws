@@ -23,7 +23,7 @@ jobs:
       security_status: ${{ steps.security.outputs.status }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Security Scan
         id: security

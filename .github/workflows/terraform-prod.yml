@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run Checkov Security Scan
         uses: bridgecrewio/checkov-action@v12.3046.0
@@ -69,7 +69,7 @@ jobs:
     if: needs.terraform-prod.outputs.apply_status == 'success' && github.event.inputs.action != 'destroy'
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Wait for Infrastructure
         run: sleep 600 # Wait 10 minutes for production infrastructure
