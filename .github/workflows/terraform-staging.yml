@@ -62,7 +62,7 @@ jobs:
     environment: production-approval
     steps:
       - name: Create Production Release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const release = await github.rest.repos.getRelease({
