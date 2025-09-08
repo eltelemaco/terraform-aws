@@ -41,7 +41,7 @@ jobs:
     if: needs.terraform-dev.outputs.terraform_apply_status == 'success'
     steps:
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::123456789013:role/GitHubActionsDeploymentRole
           role-session-name: CostAnalysis-${{ github.run_id }}
