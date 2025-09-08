@@ -79,7 +79,7 @@ jobs:
     if: needs.terraform-prod.outputs.apply_status == 'success'
     steps:
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::PRODUCTION_AWS_ACCOUNT_ID:role/GitHubActionsDeploymentRole
           role-session-name: BackupVerification-${{ github.run_id }}
@@ -115,7 +115,7 @@ jobs:
     if: needs.terraform-prod.outputs.apply_status == 'success'
     steps:
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::PRODUCTION_AWS_ACCOUNT_ID:role/GitHubActionsDeploymentRole
           role-session-name: MonitoringSetup-${{ github.run_id }}
@@ -159,7 +159,7 @@ jobs:
     if: needs.terraform-prod.outputs.apply_status == 'success'
     steps:
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::PRODUCTION_AWS_ACCOUNT_ID:role/GitHubActionsDeploymentRole
           role-session-name: ComplianceCheck-${{ github.run_id }}

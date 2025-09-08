@@ -83,7 +83,7 @@ jobs:
           terraform_version: ${{ inputs.terraform_version }}
 
       - name: Configure AWS Credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::${{ inputs.aws_account_id }}:role/${{ inputs.deployment_role_name }}
           role-session-name: GitHubActions-${{ inputs.environment }}-${{ github.run_id }}
