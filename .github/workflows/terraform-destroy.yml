@@ -87,7 +87,7 @@ jobs:
     if: needs.terraform-destroy.result == 'success'
     steps:
       - name: Create Issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const title = `Infrastructure destroyed: ${{ github.event.inputs.environment }}`;
