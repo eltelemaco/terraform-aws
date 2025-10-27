@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Checkov Security Scan
-        uses: bridgecrewio/checkov-action@v12.3046.0
+        uses: bridgecrewio/checkov-action@v12.3068.0
         with:
           directory: infrastructure/environments/prod
           framework: terraform
